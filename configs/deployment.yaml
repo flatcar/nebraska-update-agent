@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: luc
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: luc
+  namespace: luc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: lokomotive-update-controller
+  name: lokomotive-update-controller
+  namespace: luc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lokomotive-update-controller
+  template:
+    metadata:
+      labels:
+        app: lokomotive-update-controller
+    spec:
+      containers:
+      - image: quay.io/kinvolk/luc
+        name: lokomotive-update-controller
+        args:
+        - --nebraska-server=http://nebraska.nebraska:8000/v1/update
+        - --app-id=7c668cef-2832-4883-832d-4fd0c0b3316b
+        - --dev
+        - --verbose
+        imagePullPolicy: Always
+        securityContext:
+          runAsUser: 65534
+      serviceAccountName: luc

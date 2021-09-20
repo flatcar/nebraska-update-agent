@@ -3,13 +3,13 @@ package updater
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
-	"sort"
 	"strings"
 	"time"
 
-	helmreleaseapi "github.com/fluxcd/helm-controller/api/v2beta1"
 	"github.com/fluxcd/pkg/apis/meta"
 	sourceapi "github.com/fluxcd/source-controller/api/v1beta1"
 
@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kinvolk/fluxlib/lib"
 	helmrelease "github.com/kinvolk/fluxlib/lib/helm-release"
@@ -46,23 +46,41 @@ type Config struct {
 	nbsClient      *updater.Updater
 	clusterID      string
 	currentVersion string
+	updateConfig   *UpdateConfig
+}
+
+type UpdateConfig struct {
+	Packages []Package `json:"packages"`
+}
+
+type Package struct {
+	Name  string `json:"name"`
+	Chart string `json:"chart"`
+
+	// TODO: Only one should be provided.
+	GitRepo  *sourceapi.GitRepositorySpec  `json:"gitrepo,omitempty"`
+	HelmRepo *sourceapi.HelmRepositorySpec `json:"helmrepo,omitempty"`
 }
 
 var fluxInstallInterval = metav1.Duration{Duration: 5 * time.Minute} //nolint:gomnd
 
-func generateGitRepository(version string) *sourceapi.GitRepository {
+func generateGitRepository(pkg *Package) *sourceapi.GitRepository {
 	return &sourceapi.GitRepository{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "lokomotive-" + version,
+			Name:      pkg.Name,
 			Namespace: namespace,
 		},
-		Spec: sourceapi.GitRepositorySpec{
-			Interval: fluxInstallInterval,
-			Reference: &sourceapi.GitRepositoryRef{
-				Tag: version,
-			},
-			URL: "https://github.com/kinvolk/lokomotive/",
+		Spec: *pkg.GitRepo,
+	}
+}
+
+func generateHelmRepository(pkg *Package) *sourceapi.HelmRepository {
+	return &sourceapi.HelmRepository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pkg.Name,
+			Namespace: namespace,
 		},
+		Spec: *pkg.HelmRepo,
 	}
 }
 
@@ -86,24 +104,13 @@ func Reconcile(cfg *Config) error {
 		return fmt.Errorf("initializing HelmRelease config: %w", err)
 	}
 
+	// TODO: Initialize the HelmRepository config.
+
 	if err = cfg.getClusterID(); err != nil {
 		return fmt.Errorf("retrieving cluster id: %w", err)
 	}
 
-	if err = wait.PollInfinite(time.Second*10, func() (done bool, err error) {
-		cfg.currentVersion, err = cfg.getCurrentVersion()
-		if err != nil {
-			log.Errorf("getting current version from latest GitRepository: %v", err)
-
-			return false, nil
-		}
-
-		log.Debugf("got version: '%s'", cfg.currentVersion)
-
-		return true, nil
-	}); err != nil {
-		return fmt.Errorf("waiting for GitRepository to be available: %w", err)
-	}
+	cfg.currentVersion = defaultVersion
 
 	if err := cfg.setupNebraskaClient(); err != nil {
 		return fmt.Errorf("setting up nebraska client: %w", err)
@@ -136,36 +143,6 @@ func removeVFromVersion(version string) string {
 	return strings.TrimPrefix(version, "v")
 }
 
-func (cfg *Config) getCurrentVersion() (string, error) {
-	gitRepoList, err := cfg.grc.List(&client.ListOptions{Namespace: namespace})
-	if err != nil {
-		return "", fmt.Errorf("getting GitRepositoryList: %w", err)
-	}
-
-	grs := gitRepoList.Items
-
-	if len(grs) == 0 {
-		return "", fmt.Errorf("no GitRepository installed in the cluster")
-	}
-
-	sort.Slice(grs, func(i, j int) bool {
-		return grs[i].CreationTimestamp.Before(&grs[j].CreationTimestamp)
-	})
-
-	// Get the latest (the last in the sorted list) item.
-	gr := grs[len(grs)-1]
-	tag := gr.Spec.Reference.Tag
-
-	if tag == "" {
-		log.Debugf("Found empty 'tag' in GitRepository: '%s'. Source reference: %+v.", gr.Name, gr.Spec.Reference)
-
-		return defaultVersion, nil
-	}
-
-	// Remove the leading 'v' from the version.
-	return removeVFromVersion(tag), nil
-}
-
 func (cfg *Config) getClusterID() error {
 	// Return random UUID when using dev mode.
 	if cfg.Dev {
@@ -184,51 +161,101 @@ func (cfg *Config) getClusterID() error {
 	}
 
 	cfg.clusterID = string(got.UID)
-	log.Debugf("got cluster id: '%s'", cfg.clusterID)
+	log.Debugf("got cluster id: %s", cfg.clusterID)
 
 	return nil
 }
 
-func (cfg *Config) updateFluxCRs(version string) (*helmreleaseapi.HelmReleaseList, error) {
-	// For the new version create new GitRespository.
-	gr := generateGitRepository(version)
-	if err := cfg.grc.CreateOrUpdate(gr); err != nil {
-		return nil, fmt.Errorf("creating/updating GitRepository for version '%s': %w", version, err)
-	}
-
-	log.Debugf("Created/Updated the GitRepository for the version '%s'.", version)
-
-	// Get all the HelmReleases.
-	helmReleaseList, err := cfg.hrc.List(&client.ListOptions{Namespace: namespace})
+func downloadFileContents(u string) ([]byte, error) {
+	resp, err := http.Get(u)
 	if err != nil {
-		return nil, fmt.Errorf("getting HelmReleaseList: %w", err)
+		return nil, fmt.Errorf("getting file from %s: %w", u, err)
 	}
 
-	// Update all HelmReleases with the new GitRepository.
-	for _, h := range helmReleaseList.Items {
-		hr := h.DeepCopy()
-		hr.Spec.Chart.Spec.SourceRef.Name = gr.Name
-		if err := cfg.hrc.CreateOrUpdate(hr); err != nil {
-			return nil, fmt.Errorf("updating HelmRelease '%s': %w", hr.Name, err)
-		}
+	defer resp.Body.Close()
+
+	file, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading the response: %v", err)
 	}
 
-	log.Infof("Updated all the HelmReleases to version '%s'.", version)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("http request returned non-200 response: %q. Message: %s", resp.Status, string(file))
+	}
 
-	return helmReleaseList, nil
+	return file, nil
 }
 
-func (cfg *Config) waitForHelmReleaseReadiness(hrl *helmreleaseapi.HelmReleaseList) error {
+func parseUpdateConfig(config []byte) (*UpdateConfig, error) {
+	var ret UpdateConfig
+
+	if err := yaml.Unmarshal(config, &ret); err != nil {
+		return nil, fmt.Errorf("unmarshalling response into UpdateConfig: %w.\nGiven config:\n%s", err, string(config))
+	}
+
+	// TODO: Add validation code here.
+
+	return &ret, nil
+}
+
+func (cfg *Config) getUpdateConfig(cfgLink string) error {
+	updateCfgFile, err := downloadFileContents(cfgLink)
+	if err != nil {
+		return fmt.Errorf("downloading file from %s: %w", cfgLink, err)
+	}
+
+	cfg.updateConfig, err = parseUpdateConfig(updateCfgFile)
+	if err != nil {
+		return fmt.Errorf("parsing update config: %w", err)
+	}
+
+	return nil
+}
+
+func (cfg *Config) updateFluxCRs() error {
+	for _, pkg := range cfg.updateConfig.Packages {
+		gr := generateGitRepository(&pkg)
+		if err := cfg.grc.CreateOrUpdate(gr); err != nil {
+			return fmt.Errorf("creating/updating GitRepository %s: %w", pkg.Name, err)
+		}
+
+		log.Debugf("Created/Updated the GitRepository: %s", pkg.Name)
+
+		hrCluster, err := cfg.hrc.Get(pkg.Name, namespace)
+		if err != nil {
+			return fmt.Errorf("getting HelmRelease: %s", pkg.Name)
+		}
+
+		hr := hrCluster.DeepCopy()
+		hr.Spec.Chart.Spec.Chart = pkg.Chart
+		hr.Spec.Chart.Spec.SourceRef.Name = pkg.Name
+
+		// TODO: Also add support of the HelmRepository.
+		// hr.Spec.Chart.Spec.SourceRef.Kind = "HelmRepository"
+
+		if err := cfg.hrc.CreateOrUpdate(hr); err != nil {
+			return fmt.Errorf("updating HelmRelease %s: %w", hr.Name, err)
+		}
+
+		log.Debugf("Updated the HelmRelease: %s", pkg.Name)
+	}
+
+	log.Info("Updated all the HelmReleases.")
+
+	return nil
+}
+
+func (cfg *Config) waitForHelmReleaseReadiness() error {
 	log.Debug("checking the HelmRelease readiness.")
 
 	// Poll for ten minutes every ten seconds.
 	if err := wait.PollImmediate(time.Second*10, time.Minute*10, func() (done bool, err error) {
 		ready := true
 
-		for _, h := range hrl.Items {
-			hr, err := cfg.hrc.Get(h.Name, h.Namespace)
+		for _, pkg := range cfg.updateConfig.Packages {
+			hr, err := cfg.hrc.Get(pkg.Name, namespace)
 			if err != nil {
-				return false, fmt.Errorf("getting the HelmRelease '%s': %w", hr.Name, err)
+				return false, fmt.Errorf("getting the HelmRelease %s: %w", hr.Name, err)
 			}
 
 			// Not ready yet.
@@ -255,7 +282,7 @@ func (cfg *Config) waitForHelmReleaseReadiness(hrl *helmreleaseapi.HelmReleaseLi
 func (cfg *Config) setupNebraskaClient() error {
 	var err error
 
-	cfg.nbsClient, err = updater.New(cfg.NebraskaServer, cfg.ApplicationID, cfg.Channel, cfg.clusterID, cfg.currentVersion)
+	cfg.nbsClient, err = updater.New(cfg.NebraskaServer, cfg.ApplicationID, cfg.Channel, cfg.clusterID, removeVFromVersion(cfg.currentVersion))
 	if err != nil {
 		return fmt.Errorf("initializing nebraska client: %w", err)
 	}
@@ -277,17 +304,7 @@ func (cfg *Config) reconcile() error {
 		log.Info("no update available")
 
 		// Print the response just in case.
-		log.Debugf("got this object: %#v", info.GetOmahaResponse().Apps[0])
-
-		// Ensure that all the helm releases are updated to the latest version we got from the
-		// Nebraska. But if we haven't received any update yet then just return.
-		if cfg.currentVersion == defaultVersion {
-			return nil
-		}
-
-		if _, err = cfg.updateFluxCRs(cfg.currentVersion); err != nil {
-			return fmt.Errorf("ensuring all HelmReleases are to the latest version: %w", err)
-		}
+		log.Debugf("got this response: %#v", info.GetOmahaResponse().Apps[0])
 
 		return nil
 	}
@@ -296,12 +313,17 @@ func (cfg *Config) reconcile() error {
 
 	// There is a new update.
 	version := info.GetVersion()
-	version = addVToVersion(version)
+	link := info.GetURL()
 
-	log.Debugf("update available: '%s'", version)
+	log.Debugf("update available: %s", version)
 
-	helmReleaseList, err := cfg.updateFluxCRs(version)
-	if err != nil {
+	if err := cfg.getUpdateConfig(link); err != nil {
+		_ = cfg.nbsClient.ReportProgress(ctx, updater.ProgressError)
+
+		return fmt.Errorf("getting the update config provided in Nebraska update: %w", err)
+	}
+
+	if err := cfg.updateFluxCRs(); err != nil {
 		_ = cfg.nbsClient.ReportProgress(ctx, updater.ProgressError)
 
 		return fmt.Errorf("updating flux CRs: %w", err)
@@ -310,7 +332,7 @@ func (cfg *Config) reconcile() error {
 	_ = cfg.nbsClient.ReportProgress(ctx, updater.ProgressDownloadFinished)
 	_ = cfg.nbsClient.ReportProgress(ctx, updater.ProgressInstallationStarted)
 
-	if err := cfg.waitForHelmReleaseReadiness(helmReleaseList); err != nil {
+	if err := cfg.waitForHelmReleaseReadiness(); err != nil {
 		_ = cfg.nbsClient.ReportProgress(ctx, updater.ProgressError)
 
 		return err

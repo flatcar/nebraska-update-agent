@@ -1,0 +1,32 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: flux-crs
+rules:
+- apiGroups:
+  - source.toolkit.fluxcd.io
+  resources:
+  - gitrepositories
+  verbs:
+  - '*'
+- apiGroups:
+  - helm.toolkit.fluxcd.io
+  resources:
+  - helmreleases
+  verbs:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  creationTimestamp: null
+  name: flux-crs
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: flux-crs
+subjects:
+- kind: ServiceAccount
+  name: luc
+  namespace: luc

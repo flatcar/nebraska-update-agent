@@ -43,7 +43,7 @@ type Config struct {
 
 	grc            *sourcecontroller.GitRepoConfig
 	hrc            *helmrelease.HelmReleaseConfig
-	nbsClient      *updater.Updater
+	nbsClient      updater.Updater
 	clusterID      string
 	currentVersion string
 	updateConfig   *UpdateConfig
@@ -282,7 +282,15 @@ func (cfg *Config) waitForHelmReleaseReadiness() error {
 func (cfg *Config) setupNebraskaClient() error {
 	var err error
 
-	cfg.nbsClient, err = updater.New(cfg.NebraskaServer, cfg.ApplicationID, cfg.Channel, cfg.clusterID, removeVFromVersion(cfg.currentVersion))
+	nbsConfig := updater.Config{
+		OmahaURL:        cfg.NebraskaServer,
+		AppID:           cfg.ApplicationID,
+		Channel:         cfg.Channel,
+		InstanceID:      cfg.clusterID,
+		InstanceVersion: removeVFromVersion(cfg.currentVersion),
+	}
+
+	cfg.nbsClient, err = updater.New(nbsConfig)
 	if err != nil {
 		return fmt.Errorf("initializing nebraska client: %w", err)
 	}
@@ -304,7 +312,7 @@ func (cfg *Config) reconcile() error {
 		log.Info("no update available")
 
 		// Print the response just in case.
-		log.Debugf("got this response: %#v", info.GetOmahaResponse().Apps[0])
+		log.Debugf("got this response: %#v", info.OmahaResponse().Apps[0])
 
 		return nil
 	}
@@ -312,8 +320,8 @@ func (cfg *Config) reconcile() error {
 	_ = cfg.nbsClient.ReportProgress(ctx, updater.ProgressDownloadStarted)
 
 	// There is a new update.
-	version := info.GetVersion()
-	link := info.GetURL()
+	version := info.Version
+	link := info.URL()
 
 	log.Debugf("update available: %s", version)
 
@@ -344,7 +352,7 @@ func (cfg *Config) reconcile() error {
 	_ = cfg.nbsClient.ReportProgress(ctx, updater.ProgressInstallationFinished)
 	_ = cfg.nbsClient.ReportProgress(ctx, updater.ProgressUpdateComplete)
 
-	cfg.nbsClient.SetInstanceVersion(info.GetVersion())
+	cfg.nbsClient.SetInstanceVersion(info.Version)
 
 	return nil
 }

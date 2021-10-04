@@ -79,15 +79,15 @@ func generateGitRepository(pkg *Package) *sourceapi.GitRepository {
 	}
 }
 
-func generateHelmRepository(pkg *Package) *sourceapi.HelmRepository {
-	return &sourceapi.HelmRepository{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pkg.Name,
-			Namespace: namespace,
-		},
-		Spec: *pkg.HelmRepo,
-	}
-}
+// func generateHelmRepository(pkg *Package) *sourceapi.HelmRepository {
+// 	return &sourceapi.HelmRepository{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      pkg.Name,
+// 			Namespace: namespace,
+// 		},
+// 		Spec: *pkg.HelmRepo,
+// 	}
+// }
 
 func Reconcile(cfg *Config) error {
 	kubeconfig, err := ioutil.ReadFile(cfg.Kubeconfig)
@@ -168,13 +168,13 @@ func ReconcileContainer(cfg *Config) error {
 	return nil
 }
 
-func addVToVersion(version string) string {
-	if !strings.HasPrefix(version, "v") {
-		version = "v" + version
-	}
+// func addVToVersion(version string) string {
+// 	if !strings.HasPrefix(version, "v") {
+// 		version = "v" + version
+// 	}
 
-	return version
-}
+// 	return version
+// }
 
 func removeVFromVersion(version string) string {
 	return strings.TrimPrefix(version, "v")

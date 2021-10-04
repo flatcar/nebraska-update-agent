@@ -45,6 +45,7 @@ type Config struct {
 	NebraskaServer string
 	Channel        string
 	Docker         bool
+	EnvPath        string
 
 	grc            *sourcecontroller.GitRepoConfig
 	hrc            *helmrelease.HelmReleaseConfig
@@ -163,6 +164,10 @@ func ReconcileContainer(cfg *Config) error {
 
 			return false, nil
 		})
+	} else {
+		if err := cfg.systemdService(); err != nil {
+			log.Error(err)
+		}
 	}
 
 	return nil
@@ -472,6 +477,76 @@ func (cfg *Config) reconcileContainer() error {
 			continue
 		}
 	}
+
+	// Update the current version to the new one.
+	cfg.currentVersion = version
+
+	_ = cfg.nbsClient.ReportProgress(ctx, updater.ProgressInstallationFinished)
+	_ = cfg.nbsClient.ReportProgress(ctx, updater.ProgressUpdateComplete)
+
+	cfg.nbsClient.SetInstanceVersion(info.Version)
+
+	return nil
+}
+
+func (cfg *Config) systemdService() error {
+	ctx := context.TODO()
+
+	// Let us check if there is an update.
+	info, err := cfg.nbsClient.CheckForUpdates(ctx)
+	if err != nil {
+		return fmt.Errorf("checking for updates: %w", err)
+	}
+
+	// There is no update hence return.
+	if !info.HasUpdate {
+		// Print the response just in case.
+		log.Debugf("got this response: %#v", info.OmahaResponse().Apps[0])
+
+		return nil
+	}
+
+	_ = cfg.nbsClient.ReportProgress(ctx, updater.ProgressDownloadStarted)
+
+	// There is a new update.
+	version := info.Version
+	// link := info.URL()
+	// name := info.Package().Name
+
+	// Read the contents of env file
+	envFile, err := ioutil.ReadFile(cfg.EnvPath)
+	if err != nil && !os.IsNotExist(err) {
+		_ = cfg.nbsClient.ReportProgress(ctx, updater.ProgressError)
+		return fmt.Errorf("reading env file: %w", err)
+	}
+
+	envData := strings.Split(string(envFile), "\n")
+	versionEnv := strings.Split(envData[1], "=")
+
+	if versionEnv[1] == version {
+		log.Info("no update available")
+		return nil
+	}
+
+	log.Debugf("update available: %s", version)
+
+	// update env file.
+	indexVersion := int64(strings.Index(string(envFile), "VERSION=")) + 8
+	file, err := os.OpenFile(cfg.EnvPath, os.O_RDWR, 0644)
+
+	if err != nil {
+		_ = cfg.nbsClient.ReportProgress(ctx, updater.ProgressError)
+		return fmt.Errorf("failed opening file: %w", err)
+	}
+
+	defer file.Close()
+
+	_, err = file.WriteAt([]byte(version), indexVersion)
+	if err != nil {
+		return fmt.Errorf("failed writing to file: %w", err)
+	}
+
+	log.Info("Updated env file to latest version.")
 
 	// Update the current version to the new one.
 	cfg.currentVersion = version

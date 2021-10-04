@@ -13,12 +13,15 @@ var containerCmd = &cobra.Command{
 }
 
 var (
-	docker bool
+	docker  bool
+	envPath string
 )
 
 func init() {
 	RootCmd.AddCommand(containerCmd)
 	containerCmd.Flags().BoolVarP(&docker, "docker", "d", false, "enable docker mode.")
+	containerCmd.Flags().StringVar(&envPath, "envpath", "", "env file path for systemd service.")
+	containerCmd.MarkFlagRequired("envpath")
 }
 
 func runController(cmd *cobra.Command, args []string) {
@@ -31,6 +34,7 @@ func runController(cmd *cobra.Command, args []string) {
 		NebraskaServer: nebraskaServer,
 		Channel:        channel,
 		Docker:         docker,
+		EnvPath:        envPath,
 	}
 
 	if verbose {

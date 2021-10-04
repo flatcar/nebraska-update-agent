@@ -3,16 +3,12 @@ package cli
 import (
 	"os"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-
-	"github.com/kinvolk/lokomotive-update-controller/pkg/updater"
 )
 
 var RootCmd = &cobra.Command{
 	Use:   "luc",
 	Short: "Manage Lokomotive Update Controller",
-	Run:   runController,
 }
 
 func Execute() {
@@ -39,31 +35,6 @@ func init() {
 	RootCmd.PersistentFlags().Int64Var(&interval, "interval", 1, "Polling interval for Nebraska server.")
 	RootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "Output verbose logs.")
 	RootCmd.PersistentFlags().BoolVar(&dev, "dev", false, "God mode.")
-}
-
-func runController(cmd *cobra.Command, args []string) {
-	if nebraskaServer == "" {
-		log.Fatalf("--nebraska-server not provided")
-	}
-
-	if appId == "" {
-		log.Fatal("--app-id not provided")
-	}
-
-	cfg := updater.Config{
-		Kubeconfig:     kubeconfig,
-		ApplicationID:  appId,
-		Interval:       interval,
-		Dev:            dev,
-		NebraskaServer: nebraskaServer,
-		Channel:        channel,
-	}
-
-	if verbose {
-		log.SetLevel(log.DebugLevel)
-	}
-
-	if err := updater.Reconcile(&cfg); err != nil {
-		log.Fatalf("reconciling: %v", err)
-	}
+	RootCmd.MarkFlagRequired("nebraskaServer")
+	RootCmd.MarkFlagRequired("appId")
 }

@@ -31,7 +31,7 @@ spec:
         name: lokomotive-update-controller
         args:
         - --nebraska-server=http://nebraska.nebraska:8000/v1/update
-        - --app-id=ea2c1af9-d420-4d2a-8b1e-1003e50bb4a7
+        - --app-id=8c6ce89f-5f96-4c76-823b-01b9ae1049e7
         - --dev
         - --verbose
         imagePullPolicy: Always

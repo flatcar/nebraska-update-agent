@@ -3,9 +3,7 @@ package updater
 import (
 	"context"
 	"fmt"
-	"io"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -173,31 +171,11 @@ func (cfg *Config) getClusterID() error {
 	return nil
 }
 
-func downloadFileContents(u string) ([]byte, error) {
-	resp, err := http.Get(u)
-	if err != nil {
-		return nil, fmt.Errorf("getting file from %s: %w", u, err)
-	}
-
-	defer resp.Body.Close()
-
-	file, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading the response: %v", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("http request returned non-200 response: %q. Message: %s", resp.Status, string(file))
-	}
-
-	return file, nil
-}
-
-func parseUpdateConfig(config []byte) (*UpdateConfig, error) {
+func parseUpdateConfig(config string) (*UpdateConfig, error) {
 	var ret UpdateConfig
 
-	if err := yaml.Unmarshal(config, &ret); err != nil {
-		return nil, fmt.Errorf("unmarshalling response into UpdateConfig: %w.\nGiven config:\n%s", err, string(config))
+	if err := yaml.Unmarshal([]byte(config), &ret); err != nil {
+		return nil, fmt.Errorf("unmarshalling response into UpdateConfig: %w.\nGiven config:\n%s", err, config)
 	}
 
 	for _, pkg := range ret.Packages {
@@ -213,11 +191,10 @@ func parseUpdateConfig(config []byte) (*UpdateConfig, error) {
 	return &ret, nil
 }
 
-func (cfg *Config) getUpdateConfig(cfgLink string) error {
-	updateCfgFile, err := downloadFileContents(cfgLink)
-	if err != nil {
-		return fmt.Errorf("downloading file from %s: %w", cfgLink, err)
-	}
+func (cfg *Config) getUpdateConfig(info *updater.UpdateInfo) error {
+	var err error
+
+	updateCfgFile := info.Package().Metadata.Content
 
 	cfg.updateConfig, err = parseUpdateConfig(updateCfgFile)
 	if err != nil {
@@ -348,11 +325,10 @@ func (cfg *Config) reconcile() error {
 
 	// There is a new update.
 	version := info.Version
-	link := info.URL()
 
 	log.Debugf("update available: %s", version)
 
-	if err := cfg.getUpdateConfig(link); err != nil {
+	if err := cfg.getUpdateConfig(info); err != nil {
 		_ = cfg.nbsClient.ReportProgress(ctx, updater.ProgressError)
 
 		return fmt.Errorf("getting the update config provided in Nebraska update: %w", err)

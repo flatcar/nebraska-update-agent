@@ -25,7 +25,8 @@ import (
 
 	"github.com/kinvolk/fluxlib/lib"
 	helmrelease "github.com/kinvolk/fluxlib/lib/helm-release"
-	sourcecontroller "github.com/kinvolk/fluxlib/lib/source-controller"
+	gitrepocontroller "github.com/kinvolk/fluxlib/lib/source-controller/git-repo-controller"
+	helmrepocontroller "github.com/kinvolk/fluxlib/lib/source-controller/helm-repo-controller"
 )
 
 const (
@@ -41,8 +42,9 @@ type Config struct {
 	NebraskaServer string
 	Channel        string
 
-	grc            *sourcecontroller.GitRepoConfig
-	hrc            *helmrelease.HelmReleaseConfig
+	gitRepoCfg     *gitrepocontroller.GitRepoConfig
+	helmRepoCfg    *helmrepocontroller.HelmRepoConfig
+	helmReleaseCfg *helmrelease.HelmReleaseConfig
 	nbsClient      updater.Updater
 	clusterID      string
 	currentVersion string
@@ -57,9 +59,9 @@ type Package struct {
 	Name  string `json:"name"`
 	Chart string `json:"chart"`
 
-	// TODO: Only one should be provided.
 	GitRepo  *sourceapi.GitRepositorySpec  `json:"gitrepo,omitempty"`
 	HelmRepo *sourceapi.HelmRepositorySpec `json:"helmrepo,omitempty"`
+	Version  string                        `json:"version,omitempty"`
 }
 
 var fluxInstallInterval = metav1.Duration{Duration: 5 * time.Minute} //nolint:gomnd
@@ -90,21 +92,26 @@ func Reconcile(cfg *Config) error {
 		return fmt.Errorf("reading kubeconfig: %w", err)
 	}
 
-	cfg.grc, err = sourcecontroller.NewGitRepoConfig(
-		sourcecontroller.WithKubeconfig(kubeconfig),
+	cfg.gitRepoCfg, err = gitrepocontroller.NewGitRepoConfig(
+		gitrepocontroller.WithKubeconfig(kubeconfig),
 	)
 	if err != nil {
 		return fmt.Errorf("initializing GitRepository client: %w", err)
 	}
 
-	cfg.hrc, err = helmrelease.NewHelmReleaseConfig(
+	cfg.helmReleaseCfg, err = helmrelease.NewHelmReleaseConfig(
 		helmrelease.WithKubeconfig(kubeconfig),
 	)
 	if err != nil {
 		return fmt.Errorf("initializing HelmRelease config: %w", err)
 	}
 
-	// TODO: Initialize the HelmRepository config.
+	cfg.helmRepoCfg, err = helmrepocontroller.NewHelmRepoConfig(
+		helmrepocontroller.WithKubeconfig(kubeconfig),
+	)
+	if err != nil {
+		return fmt.Errorf("initializing HelmRepository client: %w", err)
+	}
 
 	if err = cfg.getClusterID(); err != nil {
 		return fmt.Errorf("retrieving cluster id: %w", err)
@@ -193,7 +200,15 @@ func parseUpdateConfig(config []byte) (*UpdateConfig, error) {
 		return nil, fmt.Errorf("unmarshalling response into UpdateConfig: %w.\nGiven config:\n%s", err, string(config))
 	}
 
-	// TODO: Add validation code here.
+	for _, pkg := range ret.Packages {
+		if pkg.GitRepo != nil && pkg.HelmRepo != nil {
+			return nil, fmt.Errorf("gitrepo and helmrepo both provided for package: %s", pkg.Name)
+		}
+
+		if pkg.HelmRepo != nil && pkg.Version == "" {
+			return nil, fmt.Errorf("helmrepo provided but version is empty for package: %s", pkg.Name)
+		}
+	}
 
 	return &ret, nil
 }
@@ -214,14 +229,7 @@ func (cfg *Config) getUpdateConfig(cfgLink string) error {
 
 func (cfg *Config) updateFluxCRs() error {
 	for _, pkg := range cfg.updateConfig.Packages {
-		gr := generateGitRepository(&pkg)
-		if err := cfg.grc.CreateOrUpdate(gr); err != nil {
-			return fmt.Errorf("creating/updating GitRepository %s: %w", pkg.Name, err)
-		}
-
-		log.Debugf("Created/Updated the GitRepository: %s", pkg.Name)
-
-		hrCluster, err := cfg.hrc.Get(pkg.Name, namespace)
+		hrCluster, err := cfg.helmReleaseCfg.Get(pkg.Name, namespace)
 		if err != nil {
 			return fmt.Errorf("getting HelmRelease: %s", pkg.Name)
 		}
@@ -230,10 +238,29 @@ func (cfg *Config) updateFluxCRs() error {
 		hr.Spec.Chart.Spec.Chart = pkg.Chart
 		hr.Spec.Chart.Spec.SourceRef.Name = pkg.Name
 
-		// TODO: Also add support of the HelmRepository.
-		// hr.Spec.Chart.Spec.SourceRef.Kind = "HelmRepository"
+		// Create GitRepository or HelmRepository.
+		if pkg.GitRepo != nil {
+			gr := generateGitRepository(&pkg)
+			if err := cfg.gitRepoCfg.CreateOrUpdate(gr); err != nil {
+				return fmt.Errorf("creating/updating GitRepository %s: %w", pkg.Name, err)
+			}
 
-		if err := cfg.hrc.CreateOrUpdate(hr); err != nil {
+			hr.Spec.Chart.Spec.SourceRef.Kind = "GitRepository"
+
+			log.Debugf("Created/Updated the GitRepository: %s", pkg.Name)
+		} else if pkg.HelmRepo != nil {
+			helmRepo := generateHelmRepository(&pkg)
+			if err := cfg.helmRepoCfg.CreateOrUpdate(helmRepo); err != nil {
+				return fmt.Errorf("creating/updatigng HelmRepository %s: %w", pkg.Name, err)
+			}
+
+			hr.Spec.Chart.Spec.SourceRef.Kind = "HelmRepository"
+			hr.Spec.Chart.Spec.Version = pkg.Version
+
+			log.Debugf("Created/Updated the HelmRepository: %s", pkg.Name)
+		}
+
+		if err := cfg.helmReleaseCfg.CreateOrUpdate(hr); err != nil {
 			return fmt.Errorf("updating HelmRelease %s: %w", hr.Name, err)
 		}
 
@@ -253,7 +280,7 @@ func (cfg *Config) waitForHelmReleaseReadiness() error {
 		ready := true
 
 		for _, pkg := range cfg.updateConfig.Packages {
-			hr, err := cfg.hrc.Get(pkg.Name, namespace)
+			hr, err := cfg.helmReleaseCfg.Get(pkg.Name, namespace)
 			if err != nil {
 				return false, fmt.Errorf("getting the HelmRelease %s: %w", hr.Name, err)
 			}

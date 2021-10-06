@@ -1,40 +1,40 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: luc
+  name: nuc
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: luc
-  namespace: luc
+  name: nuc
+  namespace: nuc
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: lokomotive-update-controller
-  name: lokomotive-update-controller
-  namespace: luc
+    app: nebraska-update-controller
+  name: nebraska-update-controller
+  namespace: nuc
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: lokomotive-update-controller
+      app: nebraska-update-controller
   template:
     metadata:
       labels:
-        app: lokomotive-update-controller
+        app: nebraska-update-controller
     spec:
       containers:
-      - image: quay.io/kinvolk/luc
-        name: lokomotive-update-controller
+      - image: quay.io/kinvolk/nuc
+        name: nebraska-update-controller
         args:
-        - --nebraska-server=http://nebraska.nebraska:8000/v1/update
-        - --app-id=8c6ce89f-5f96-4c76-823b-01b9ae1049e7
+        - --nebraska-server=http://nebraska.nebraska:8000/v1/update/
+        - --app-id=e006754f-0621-4120-95f9-cba5e2b527f2
         - --dev
         - --verbose
         imagePullPolicy: Always
         securityContext:
           runAsUser: 65534
-      serviceAccountName: luc
+      serviceAccountName: nuc

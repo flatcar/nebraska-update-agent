@@ -29,5 +29,5 @@ roleRef:
   name: flux-crs
 subjects:
 - kind: ServiceAccount
-  name: luc
-  namespace: luc
+  name: nuc
+  namespace: nuc

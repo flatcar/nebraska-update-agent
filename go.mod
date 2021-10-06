@@ -1,4 +1,4 @@
-module github.com/kinvolk/lokomotive-update-controller
+module github.com/kinvolk/nebraska-update-controller
 
 go 1.16
 

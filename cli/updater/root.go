@@ -1,14 +1,18 @@
-package cli
+package updatercli
 
 import (
 	"os"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/kinvolk/lokomotive-update-controller/pkg/updater"
 )
 
 var RootCmd = &cobra.Command{
 	Use:   "luc",
 	Short: "Manage Lokomotive Update Controller",
+	Run:   runController,
 }
 
 func Execute() {
@@ -37,4 +41,24 @@ func init() {
 	RootCmd.PersistentFlags().BoolVar(&dev, "dev", false, "God mode.")
 	RootCmd.MarkFlagRequired("nebraskaServer")
 	RootCmd.MarkFlagRequired("appId")
+}
+
+func runController(cmd *cobra.Command, args []string) {
+
+	cfg := updater.Config{
+		Kubeconfig:     kubeconfig,
+		ApplicationID:  appId,
+		Interval:       interval,
+		Dev:            dev,
+		NebraskaServer: nebraskaServer,
+		Channel:        channel,
+	}
+
+	if verbose {
+		log.SetLevel(log.DebugLevel)
+	}
+
+	if err := updater.Reconcile(&cfg); err != nil {
+		log.Fatalf("reconciling: %v", err)
+	}
 }

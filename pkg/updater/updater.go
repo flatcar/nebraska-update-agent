@@ -224,7 +224,7 @@ func (cfg *Config) updateFluxCRs() error {
 
 			hr.Spec.Chart.Spec.SourceRef.Kind = "GitRepository"
 
-			log.Debugf("Created/Updated the GitRepository: %s", pkg.Name)
+			log.Debugf("created/updated the GitRepository: %s", pkg.Name)
 		} else if pkg.HelmRepo != nil {
 			helmRepo := generateHelmRepository(&pkg)
 			if err := cfg.helmRepoCfg.CreateOrUpdate(helmRepo); err != nil {
@@ -234,17 +234,17 @@ func (cfg *Config) updateFluxCRs() error {
 			hr.Spec.Chart.Spec.SourceRef.Kind = "HelmRepository"
 			hr.Spec.Chart.Spec.Version = pkg.Version
 
-			log.Debugf("Created/Updated the HelmRepository: %s", pkg.Name)
+			log.Debugf("created/updated the HelmRepository: %s", pkg.Name)
 		}
 
 		if err := cfg.helmReleaseCfg.CreateOrUpdate(hr); err != nil {
 			return fmt.Errorf("updating HelmRelease %s: %w", hr.Name, err)
 		}
 
-		log.Debugf("Updated the HelmRelease: %s", pkg.Name)
+		log.Debugf("updated the HelmRelease: %s", pkg.Name)
 	}
 
-	log.Info("Updated all the HelmReleases.")
+	log.Info("updated all the HelmReleases.")
 
 	return nil
 }
@@ -278,7 +278,7 @@ func (cfg *Config) waitForHelmReleaseReadiness() error {
 		return fmt.Errorf("waiting for the HelmReleases to be ready: %w", err)
 	}
 
-	log.Info("All the HelmReleases are ready with the new version.")
+	log.Info("all the HelmReleases are ready with the new version.")
 
 	return nil
 }

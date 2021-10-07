@@ -11,3 +11,7 @@ This project is created as a proof-of-concept for providing managed updates to a
 ## Contributing
 
 Please check out the [contributing](./CONTRIBUTING.md) file, and observe our [Code of Conduct](./CODE_OF_CONDUCT.md) when participating in this project.
+
+## License
+
+ This project is released under the [MIT license](./LICENSE.txt).

@@ -10,4 +10,4 @@ This project is created as a proof-of-concept for providing managed updates to a
 
 ## Contributing
 
-Please observe our [Code of Conduct](./CODE_OF_CONDUCT.md) when participating in this project.
+Please check out the [contributing](./CONTRIBUTING.md) file, and observe our [Code of Conduct](./CODE_OF_CONDUCT.md) when participating in this project.

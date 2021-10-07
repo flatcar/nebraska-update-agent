@@ -572,6 +572,8 @@ github.com/julz/importas v0.0.0-20210228071311-d0bf5cb4e1db/go.mod h1:oSFU2R4XK/
 github.com/k0kubun/colorstring v0.0.0-20150214042306-9440f1994b88/go.mod h1:3w7q1U84EfirKl04SVQ/s7nPm1ZPhiXd34z40TNz36k=
 github.com/karrick/godirwalk v1.15.8/go.mod h1:j4mkqPuvaLI8mp1DroR3P6ad7cyYd4c1qeJ3RV7ULlk=
 github.com/kevinburke/go-bindata v3.22.0+incompatible/go.mod h1:/pEEZ72flUW2p0yi30bslSp9YqD9pysLxunQDdb2CPM=
+github.com/kinvolk/flux-libs v0.0.0-20211007140918-b5d53df56575 h1:gl2ykQhVpI/MF9HRTtMZ9pPyv5E2iQs0SWBXWSQrYJA=
+github.com/kinvolk/flux-libs v0.0.0-20211007140918-b5d53df56575/go.mod h1:HpURBuhkLHPHbMkToBfITPspEXpc0IR0zE0Y0FUZDVg=
 github.com/kinvolk/go-omaha v0.0.1/go.mod h1:iEx6ZzqUoKoGQvQuLqI9fgQ8MbaZVstj2y+g7/nJwgE=
 github.com/kinvolk/go-omaha v0.0.2-0.20210913111157-799c84c6ec9e h1:TGZGADjEDEe7NNDXlABfXqCTjMj6WGWdC+RGBUzGdfg=
 github.com/kinvolk/go-omaha v0.0.2-0.20210913111157-799c84c6ec9e/go.mod h1:SAEkKv9dpmCAVA3KxGdlHMoO4VaCAfIZuui57PqGQbg=
@@ -579,6 +581,8 @@ github.com/kinvolk/nebraska/backend v0.0.0-20210826093658-9a22e1e98f4b h1:ME8iBZ
 github.com/kinvolk/nebraska/backend v0.0.0-20210826093658-9a22e1e98f4b/go.mod h1:cq4IxRSxlfldRR0sbHqDOY3uE+CPyMdhCFWlC10pTLs=
 github.com/kinvolk/nebraska/updater v0.0.0-20211005113039-cc4d0053dd4b h1:QOP1sNj/JRNyhp0ycjzeThLloDBXaFhnfL+Cbtn+thc=
 github.com/kinvolk/nebraska/updater v0.0.0-20211005113039-cc4d0053dd4b/go.mod h1:nv5bic4jf60SQAGhGr2BqLBXjYllAHMPjB6N/cj1Ekc=
+github.com/kinvolk/nebraska/updater v0.0.0-20211006140741-b0a56c5037ac h1:U05CtbImlE+MqxIEEbUlYlvfYyCQCY0+1qmToVR/5QM=
+github.com/kinvolk/nebraska/updater v0.0.0-20211006140741-b0a56c5037ac/go.mod h1:nv5bic4jf60SQAGhGr2BqLBXjYllAHMPjB6N/cj1Ekc=
 github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvWXihfKN4Q=
 github.com/kisielk/errcheck v1.2.0/go.mod h1:/BMXB+zMLi60iA8Vv6Ksmxu/1UDYcXs4uQLJ+jE2L00=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=

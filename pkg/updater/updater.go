@@ -21,10 +21,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/yaml"
 
-	"github.com/kinvolk/fluxlib/lib"
-	helmrelease "github.com/kinvolk/fluxlib/lib/helm-release"
-	gitrepocontroller "github.com/kinvolk/fluxlib/lib/source-controller/git-repo-controller"
-	helmrepocontroller "github.com/kinvolk/fluxlib/lib/source-controller/helm-repo-controller"
+	"github.com/kinvolk/flux-libs/lib"
+	helmrelease "github.com/kinvolk/flux-libs/lib/helm-release"
+	gitrepocontroller "github.com/kinvolk/flux-libs/lib/source-controller/git-repo-controller"
+	helmrepocontroller "github.com/kinvolk/flux-libs/lib/source-controller/helm-repo-controller"
 )
 
 const (

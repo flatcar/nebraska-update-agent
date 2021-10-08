@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nuc
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nuc
+  namespace: nuc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nebraska-update-controller
+  name: nebraska-update-controller
+  namespace: nuc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nebraska-update-controller
+  template:
+    metadata:
+      labels:
+        app: nebraska-update-controller
+    spec:
+      containers:
+      - image: quay.io/kinvolk/nuc
+        name: nebraska-update-controller
+        args:
+        - --nebraska-server=http://nebraska.nebraska:8000/v1/update/
+        - --app-id=e006754f-0621-4120-95f9-cba5e2b527f2
+        - --dev
+        - --verbose
+        imagePullPolicy: Always
+        securityContext:
+          runAsUser: 65534
+      serviceAccountName: nuc

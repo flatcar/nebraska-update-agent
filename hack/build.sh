@@ -1,4 +1,4 @@
 #!/bin/bash
 
-go build -o luc main.go
-docker build -t quay.io/kinvolk/luc .
+env GOOS=linux GOARCH=amd64 go build -o nuc main.go
+docker buildx build --load -t quay.io/kinvolk/nuc --platform linux/amd64 .

@@ -1,4 +1,4 @@
-FROM registry.fedoraproject.org/fedora:34
+FROM scratch
 ARG ARCH=amd64
 COPY nuc /bin/
 ENTRYPOINT [ "/bin/nuc" ]

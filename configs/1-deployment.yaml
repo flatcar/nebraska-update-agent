@@ -30,8 +30,8 @@ spec:
       - image: quay.io/kinvolk/nuc
         name: nebraska-update-controller
         args:
-        - --nebraska-server=http://nebraska.nebraska:8000/v1/update/
-        - --app-id=e006754f-0621-4120-95f9-cba5e2b527f2
+        - --nebraska-server=https://staging.updateservice.flatcar-linux.net/v1/update/
+        - --app-id=io.kinvolk.demo
         - --dev
         - --verbose
         imagePullPolicy: Always

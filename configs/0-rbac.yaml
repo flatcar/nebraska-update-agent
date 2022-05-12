@@ -5,6 +5,15 @@ metadata:
   name: flux-crs
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - create
+  - list
+  - get
+
+- apiGroups:
   - source.toolkit.fluxcd.io
   resources:
   - gitrepositories

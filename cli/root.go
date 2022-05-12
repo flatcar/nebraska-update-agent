@@ -6,12 +6,12 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/kinvolk/nebraska-update-controller/pkg/updater"
+	"github.com/kinvolk/nebraska-update-agent/pkg/updater"
 )
 
 var RootCmd = &cobra.Command{
-	Use:   "nuc",
-	Short: "Manage Nebraska Update Controller",
+	Use:   "nua",
+	Short: "Manage Nebraska Update Agent",
 	Run:   runController,
 }
 

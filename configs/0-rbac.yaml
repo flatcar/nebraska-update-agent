@@ -44,5 +44,5 @@ roleRef:
   name: flux-crs
 subjects:
 - kind: ServiceAccount
-  name: nuc
-  namespace: nuc
+  name: nua
+  namespace: nua

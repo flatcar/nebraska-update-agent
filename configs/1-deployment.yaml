@@ -1,34 +1,34 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: nuc
+  name: nua
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: nuc
-  namespace: nuc
+  name: nua
+  namespace: nua
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: nebraska-update-controller
-  name: nebraska-update-controller
-  namespace: nuc
+    app: nebraska-update-agent
+  name: nebraska-update-agent
+  namespace: nua
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: nebraska-update-controller
+      app: nebraska-update-agent
   template:
     metadata:
       labels:
-        app: nebraska-update-controller
+        app: nebraska-update-agent
     spec:
       containers:
-      - image: quay.io/kinvolk/nuc
-        name: nebraska-update-controller
+      - image: quay.io/kinvolk/nua
+        name: nebraska-update-agent
         args:
         - --nebraska-server=https://staging.updateservice.flatcar-linux.net/v1/update/
         - --app-id=io.kinvolk.demo
@@ -37,4 +37,4 @@ spec:
         imagePullPolicy: Always
         securityContext:
           runAsUser: 65534
-      serviceAccountName: nuc
+      serviceAccountName: nua

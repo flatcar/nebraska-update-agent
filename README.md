@@ -1,4 +1,4 @@
-# Nebraska Update Controller
+# Nebraska Update Agent
 
 [Nebraska](https://github.com/kinvolk/nebraska/) is an update management and monitoring service, for omaha-based updates.
 

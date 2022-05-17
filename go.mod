@@ -1,4 +1,4 @@
-module github.com/kinvolk/nebraska-update-controller
+module github.com/kinvolk/nebraska-update-agent
 
 go 1.16
 

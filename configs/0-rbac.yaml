@@ -5,6 +5,15 @@ metadata:
   name: flux-crs
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - create
+  - list
+  - get
+
+- apiGroups:
   - source.toolkit.fluxcd.io
   resources:
   - gitrepositories
@@ -35,5 +44,5 @@ roleRef:
   name: flux-crs
 subjects:
 - kind: ServiceAccount
-  name: nuc
-  namespace: nuc
+  name: nua
+  namespace: nua
